@@ -87,7 +87,6 @@ void* almacen_ventas(void* arg) {
 		snprintf(buff, 50, "%d", num_orden); //solución de copilot para serializar
 		printf("[Almacén] Atendida orden nº %s. Unidades restantes: %d\n", buff , unidades_producto);
 		sem_post(&sem_uds);
-		mq_send(cola, buff, 50, 0);
 	}
 }
 
@@ -165,8 +164,8 @@ int main(int argc, char* argv[]) {
 		pthread_join(talmacen_ventas, NULL);
 	}
 
-	sem_close(sem_almacenar);
 	sem_unlink("/sem_almacenar");
+	sem_close(sem_almacenar);
 	sem_destroy(&sem_pintar);
 	sem_destroy(&sem_empaquetar);
 
