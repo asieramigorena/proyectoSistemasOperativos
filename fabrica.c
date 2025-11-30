@@ -10,14 +10,23 @@
 #include <mqueue.h>
 #include <string.h>
 
-pid_t pid_almacen, pid_fabrica, pid_ventas, pid_almacenar;
+pid_t pid_almacen, pid_fabrica, pid_ventas;
 
-sem_t sem_ensamblar, sem_pintar, sem_empaquetar, sem_uds;
+sem_t sem_pintar, sem_empaquetar, sem_uds;
 sem_t* sem_almacenar;
 
 mqd_t cola;
 
 int unidades_producto = 0;
+
+void terminar(int sig) {
+
+	kill(pid_almacen, SIGINT);
+	kill(pid_fabrica, SIGINT);
+	kill(pid_ventas, SIGINT);
+
+	exit(0);
+}
 
 int tiempo_aleatorio(int min, int max) {
     return rand() % (max - min + 1) + min;
@@ -117,11 +126,25 @@ int main(int argc, char* argv[]) {
 			pid_ventas = fork();
 			if(pid_ventas != 0) {
 				/* Proceso padre */
+				signal(SIGINT, SIG_IGN);
+
 				wait(NULL);
 				wait(NULL);
 				wait(NULL);
+
+				sem_close(sem_almacenar);
+				sem_unlink("/sem_almacenar");
+				sem_destroy(&sem_pintar);
+				sem_destroy(&sem_empaquetar);
+				sem_destroy(&sem_uds);
+
+				mq_close(cola);
+				mq_unlink("/ventas");
+
+				exit(0);
 			} else {
 				/* Proceso Ventas */
+				signal(SIGINT, terminar);
 				int num_orden = 0;
 				while(1) {
 					sleep(tiempo_aleatorio(10, 15));
@@ -138,6 +161,7 @@ int main(int argc, char* argv[]) {
 				}
 			}
 		} else {
+			signal(SIGINT, terminar);
 			printf("[Fábrica] Comienzo mi ejecución...\n");
 
 
@@ -153,6 +177,7 @@ int main(int argc, char* argv[]) {
 			pthread_join(tempaquetar, NULL);
 		}
 	} else {
+		signal(SIGINT, terminar);
 		printf("[Almacén] Comienzo mi ejecución...\n");
 
 		pthread_t talmacenar;
@@ -163,14 +188,6 @@ int main(int argc, char* argv[]) {
 		pthread_join(talmacenar, NULL);
 		pthread_join(talmacen_ventas, NULL);
 	}
-
-	sem_unlink("/sem_almacenar");
-	sem_close(sem_almacenar);
-	sem_destroy(&sem_pintar);
-	sem_destroy(&sem_empaquetar);
-
-	mq_unlink("/ventas");
-	mq_close(cola);
 
 	exit(0);
 }
