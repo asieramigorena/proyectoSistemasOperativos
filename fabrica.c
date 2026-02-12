@@ -20,12 +20,9 @@ mqd_t cola;
 int unidades_producto = 0;
 
 void terminar(int sig) {
-
-	kill(pid_almacen, SIGINT);
-	kill(pid_fabrica, SIGINT);
-	kill(pid_ventas, SIGINT);
-
-	exit(0);
+	if (pid_almacen > 0) kill(pid_almacen, SIGKILL);
+    if (pid_fabrica > 0) kill(pid_fabrica, SIGKILL);
+    if (pid_ventas > 0) kill(pid_ventas, SIGKILL);
 }
 
 int tiempo_aleatorio(int min, int max) {
@@ -100,6 +97,7 @@ void* almacen_ventas(void* arg) {
 }
 
 int main(int argc, char* argv[]) {
+	signal(SIGINT, terminar);
 
 	sem_unlink("/sem_almacenar");
 	sem_almacenar = sem_open("/sem_almacenar", O_CREAT, 0644, 0);
@@ -126,25 +124,22 @@ int main(int argc, char* argv[]) {
 			pid_ventas = fork();
 			if(pid_ventas != 0) {
 				/* Proceso padre */
-				signal(SIGINT, SIG_IGN);
 
 				wait(NULL);
 				wait(NULL);
 				wait(NULL);
 
 				sem_close(sem_almacenar);
-				sem_unlink("/sem_almacenar");
-				sem_destroy(&sem_pintar);
-				sem_destroy(&sem_empaquetar);
-				sem_destroy(&sem_uds);
-
-				mq_close(cola);
-				mq_unlink("/ventas");
+                sem_unlink("/sem_almacenar");
+                sem_destroy(&sem_pintar);
+                sem_destroy(&sem_empaquetar);
+                sem_destroy(&sem_uds);
+                mq_close(cola);
+                mq_unlink("/ventas");
 
 				exit(0);
 			} else {
 				/* Proceso Ventas */
-				signal(SIGINT, terminar);
 				int num_orden = 0;
 				while(1) {
 					sleep(tiempo_aleatorio(10, 15));
@@ -161,7 +156,6 @@ int main(int argc, char* argv[]) {
 				}
 			}
 		} else {
-			signal(SIGINT, terminar);
 			printf("[Fábrica] Comienzo mi ejecución...\n");
 
 
@@ -177,7 +171,6 @@ int main(int argc, char* argv[]) {
 			pthread_join(tempaquetar, NULL);
 		}
 	} else {
-		signal(SIGINT, terminar);
 		printf("[Almacén] Comienzo mi ejecución...\n");
 
 		pthread_t talmacenar;
